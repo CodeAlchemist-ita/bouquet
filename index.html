@@ -331,7 +331,8 @@ function render(scene, t, cols, rows, hearts) {
 // Più leggero del DOM: niente innerHTML/reflow a ogni frame, testo nitido grazie a devicePixelRatio.
 const canvas = document.getElementById("screen");
 const ctx = canvas.getContext("2d", { alpha: false });
-const FONT_STACK = '"DejaVu Sans Mono", Menlo, Consolas, "Courier New", monospace';
+// Su Android "Courier New" diventa un font con grazie, sottile: si usano font sans mono e il generico monospace.
+const FONT_STACK = '"DejaVu Sans Mono", Menlo, Consolas, "Roboto Mono", "Droid Sans Mono", "Liberation Mono", monospace';
 let cols = 80, rows = 30, cellW = 8, cellH = 16;
 let footerRows = 2, msgSize = 24, msgShift = 0;
 
