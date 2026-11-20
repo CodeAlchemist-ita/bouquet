@@ -321,7 +321,7 @@ function render(scene, t, cols, rows, hearts) {
     else if (tw > 0) plotP(x, y, z, 0, "·", 218);
   }
 
-  // Messaggio animato + firma dell'autore
+  // Messaggio animato
   const writeLine = (row, text, colorFn) => {
     const start = Math.max(0, Math.floor((cols - text.length) / 2));
     [...text].forEach((ch, i) => {
@@ -330,7 +330,6 @@ function render(scene, t, cols, rows, hearts) {
   };
   const shift = Math.trunc(t * 6);
   writeLine(rows - 2, MESSAGE, i => MSG_COLORS[(i + shift) % MSG_COLORS.length]);
-  writeLine(rows - 1, "@alishsharma on tiktok!", () => 238);
 
 }
 
@@ -382,7 +381,7 @@ function draw() {
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         const i = r * cols + c;
-        if (chars[i] === " " || r >= rows - 2) continue; // niente sfondo su messaggio/firma
+        if (chars[i] === " " || r >= rows - 2) continue; // niente sfondo sotto il messaggio
         if (colors[i] !== lc) { lc = colors[i]; ctx.fillStyle = BRIGHT[lc]; }
         ctx.fillRect(c * cellW, offY + r * cellH, cellW + 0.5, cellH + 0.5);
       }
@@ -395,7 +394,7 @@ function draw() {
     const y = offY + (r + 0.5) * cellH;
     for (let c = 0; c < cols; c++) {
       const i = r * cols + c, ch = chars[i];
-      if (ch === " " || r >= rows - 2) continue; // messaggio e firma: disegnati sotto, più grandi
+      if (ch === " " || r >= rows - 2) continue; // messaggio: disegnato a parte, più grande
       if (colors[i] !== lastColor) { lastColor = colors[i]; ctx.fillStyle = BRIGHT[lastColor]; }
       ctx.fillText(ch, (c + 0.5) * cellW, y);
     }
@@ -403,23 +402,20 @@ function draw() {
   drawFooter(offY);
 }
 
-// Messaggio e firma con un carattere leggibile, indipendente dalla risoluzione della griglia.
+// Messaggio con un carattere leggibile, indipendente dalla risoluzione della griglia.
 // I colori animati del messaggio vengono letti dal buffer, come calcolati da render().
 function drawFooter(offY) {
   const w = canvas.clientWidth, bottom = offY + rows * cellH;
-  const msgSize = Math.max(18, Math.min(32, w / 16)), hintSize = msgSize * 0.55;
+  const msgSize = Math.max(18, Math.min(32, w / 16));
   const msgChars = [...MESSAGE], mrow = rows - 2;
   const mStart = Math.max(0, Math.floor((cols - msgChars.length) / 2));
   ctx.font = "bold " + msgSize + "px " + FONT_STACK;
   const charW = msgSize * 0.6, x0 = w / 2 - (msgChars.length * charW) / 2;
-  const yMsg = bottom - hintSize * 2.2 - msgSize * 0.6;
+  const yMsg = bottom - msgSize * 1.2;
   msgChars.forEach((ch, i) => {
     ctx.fillStyle = BRIGHT[colors[mrow * cols + mStart + i]] || "#ff87d7";
     ctx.fillText(ch, x0 + (i + 0.5) * charW, yMsg);
   });
-  ctx.font = hintSize + "px " + FONT_STACK;
-  ctx.fillStyle = "#666";
-  ctx.fillText("@alishsharma on tiktok!", w / 2, bottom - hintSize * 1.2);
   ctx.font = "bold " + (cellW / 0.6).toFixed(2) + "px " + FONT_STACK; // ripristina il font della griglia
 }
 
