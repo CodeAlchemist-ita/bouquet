@@ -27,7 +27,9 @@
 
 // ---- Costanti (identiche all'originale) ----
 const SPIN_SPEED = 0.6, TILT = 0.30, CAM_DIST = 4.0, PIVOT_Y = 0.2;
-const MESSAGE = "for you ♥", NUM_HEARTS = 18;
+// Messaggio in fondo alla pagina: una voce per riga.
+const MESSAGE_LINES = ["Congratulazioni", "Dottoressa"];
+const NUM_HEARTS = 18;
 const WHITE = [244, 248, 251, 254, 255, 231];
 const PINK = [125, 162, 168, 205, 211, 218, 225];
 const RED = [52, 88, 124, 160, 196, 203];
@@ -231,7 +233,7 @@ function render(scene, t, cols, rows, hearts) {
   ensureBuffers(cols, rows);
   chars.fill(" "); colors.fill(0); zbuf.fill(-1e9);
 
-  const viewRows = rows - 2;
+  const viewRows = rows - footerRows; // righe libere per la scena, sopra il messaggio
   const scale = Math.max(1, Math.min((viewRows - 2) / 1.45, (cols - 2) / 2.7));
   const sxScale = scale * 2;
   // Su schermi verticali (telefono) la scala è limitata dalla larghezza:
@@ -321,16 +323,8 @@ function render(scene, t, cols, rows, hearts) {
     else if (tw > 0) plotP(x, y, z, 0, "·", 218);
   }
 
-  // Messaggio animato
-  const writeLine = (row, text, colorFn) => {
-    const start = Math.max(0, Math.floor((cols - text.length) / 2));
-    [...text].forEach((ch, i) => {
-      if (start + i < cols) { chars[row * cols + start + i] = ch; colors[row * cols + start + i] = colorFn(i); }
-    });
-  };
-  const shift = Math.trunc(t * 6);
-  writeLine(rows - 2, MESSAGE, i => MSG_COLORS[(i + shift) % MSG_COLORS.length]);
-
+  // Scorrimento dei colori del messaggio (disegnato da drawFooter)
+  msgShift = Math.trunc(t * 6);
 }
 
 // ---- Output su canvas ----
@@ -339,6 +333,7 @@ const canvas = document.getElementById("screen");
 const ctx = canvas.getContext("2d", { alpha: false });
 const FONT_STACK = '"DejaVu Sans Mono", Menlo, Consolas, "Courier New", monospace';
 let cols = 80, rows = 30, cellW = 8, cellH = 16;
+let footerRows = 2, msgSize = 24, msgShift = 0;
 
 // Schiarisce i toni molto scuri della palette, quasi invisibili su nero su schermi piccoli.
 const BRIGHT = XTERM.map(hex => {
@@ -356,13 +351,17 @@ function layout() {
   canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   // Cella 1:2 come un terminale (l'algoritmo assume sx_scale = 2 * scale).
-  // Su telefono ~52 colonne: caratteri leggibili; su desktop fino a 110.
   // Più colonne = forma più riconoscibile. Su telefono ~108 colonne: i caratteri sono piccoli
   // ma nitidi (canvas ad alta densità) e la sagoma del mazzo si legge bene.
   const targetCols = Math.max(100, Math.min(180, Math.round(w / 3.6)));
   cellW = w / targetCols; cellH = cellW * 2;
   cols = targetCols;
   rows = Math.max(12, Math.floor(h / cellH));
+  // Il messaggio deve stare nel 90% della larghezza, senza superare 34px.
+  const longest = Math.max(...MESSAGE_LINES.map(l => [...l].length));
+  msgSize = Math.max(16, Math.min(34, (w * 0.9) / (longest * 0.6)));
+  // Righe della griglia riservate al messaggio, così non si sovrappone al mazzo.
+  footerRows = Math.ceil((MESSAGE_LINES.length * msgSize * 1.25 + msgSize * 0.8) / cellH);
   ctx.font = "bold " + (cellW / 0.6).toFixed(2) + "px " + FONT_STACK;
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
 }
@@ -381,7 +380,7 @@ function draw() {
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         const i = r * cols + c;
-        if (chars[i] === " " || r >= rows - 2) continue; // niente sfondo sotto il messaggio
+        if (chars[i] === " ") continue;
         if (colors[i] !== lc) { lc = colors[i]; ctx.fillStyle = BRIGHT[lc]; }
         ctx.fillRect(c * cellW, offY + r * cellH, cellW + 0.5, cellH + 0.5);
       }
@@ -394,7 +393,7 @@ function draw() {
     const y = offY + (r + 0.5) * cellH;
     for (let c = 0; c < cols; c++) {
       const i = r * cols + c, ch = chars[i];
-      if (ch === " " || r >= rows - 2) continue; // messaggio: disegnato a parte, più grande
+      if (ch === " ") continue;
       if (colors[i] !== lastColor) { lastColor = colors[i]; ctx.fillStyle = BRIGHT[lastColor]; }
       ctx.fillText(ch, (c + 0.5) * cellW, y);
     }
@@ -402,19 +401,21 @@ function draw() {
   drawFooter(offY);
 }
 
-// Messaggio con un carattere leggibile, indipendente dalla risoluzione della griglia.
-// I colori animati del messaggio vengono letti dal buffer, come calcolati da render().
+// Messaggio su più righe, con carattere leggibile indipendente dalla griglia
+// e colori che scorrono come in "for you ♥" dell'originale.
 function drawFooter(offY) {
   const w = canvas.clientWidth, bottom = offY + rows * cellH;
-  const msgSize = Math.max(18, Math.min(32, w / 16));
-  const msgChars = [...MESSAGE], mrow = rows - 2;
-  const mStart = Math.max(0, Math.floor((cols - msgChars.length) / 2));
-  ctx.font = "bold " + msgSize + "px " + FONT_STACK;
-  const charW = msgSize * 0.6, x0 = w / 2 - (msgChars.length * charW) / 2;
-  const yMsg = bottom - msgSize * 1.2;
-  msgChars.forEach((ch, i) => {
-    ctx.fillStyle = BRIGHT[colors[mrow * cols + mStart + i]] || "#ff87d7";
-    ctx.fillText(ch, x0 + (i + 0.5) * charW, yMsg);
+  const lineH = msgSize * 1.25, charW = msgSize * 0.6;
+  ctx.font = "bold " + msgSize.toFixed(2) + "px " + FONT_STACK;
+  let k = 0; // indice globale dei caratteri: l'onda di colore continua da una riga all'altra
+  MESSAGE_LINES.forEach((line, li) => {
+    const chs = [...line];
+    const x0 = w / 2 - (chs.length * charW) / 2;
+    const y = bottom - (MESSAGE_LINES.length - li - 0.5) * lineH - msgSize * 0.4;
+    chs.forEach((ch, i) => {
+      ctx.fillStyle = BRIGHT[MSG_COLORS[(k++ + msgShift) % MSG_COLORS.length]];
+      ctx.fillText(ch, x0 + (i + 0.5) * charW, y);
+    });
   });
   ctx.font = "bold " + (cellW / 0.6).toFixed(2) + "px " + FONT_STACK; // ripristina il font della griglia
 }
